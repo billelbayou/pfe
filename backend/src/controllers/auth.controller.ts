@@ -60,7 +60,6 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-
 export const checkAuth = async (req: Request, res: Response) => {
   try {
     //@ts-ignore

@@ -1,4 +1,3 @@
-
 import { redirect } from "next/navigation";
 import { getToken } from "./token";
 
@@ -17,7 +16,7 @@ export const login = async (previousState: unknown, formData: FormData) => {
       },
     });
     const data = await response.json();
-    if (data.success) {
+    if (!data.success) {
       return data;
     }
   } catch (error) {
@@ -28,16 +27,28 @@ export const login = async (previousState: unknown, formData: FormData) => {
 };
 
 export const checkAuth = async () => {
-  const token = await getToken();
+  try {
+    const token = await getToken();
 
-  const res = await fetch("http://localhost:5000/api/auth/check-auth", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`, // Send token in Authorization header
-    },
-    credentials: "include", // Still include cookies (optional)
-  });
-  const data = await res.json();
-  return data;
+    if (!token) {
+      return { success: false, message: "Unauthorized" };
+    }
+
+    const res = await fetch("http://localhost:5000/api/auth/check-auth", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, // Send token in Authorization header
+      },
+      credentials: "include", // Still include cookies (optional)
+    });
+
+    if (!res.ok) {
+      return { success: false, message: "Failed to verify authentication" };
+    }
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    return { success: false, message: "An error occurred" };
+  }
 };
-
