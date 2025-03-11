@@ -41,7 +41,6 @@ export const checkAuth = async () => {
       },
       credentials: "include", // Still include cookies (optional)
     });
-
     if (!res.ok) {
       return { success: false, message: "Failed to verify authentication" };
     }
