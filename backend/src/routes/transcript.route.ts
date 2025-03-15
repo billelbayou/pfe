@@ -1,23 +1,29 @@
 import express from "express";
+import { prisma } from "../db/prisma";
 import {
   createTranscript,
+  deleteTranscript,
   getAllTranscripts,
   getTranscriptById,
-  updateTranscriptStatus,
+  updateTranscript,
 } from "../controllers/transcript.controller";
 import { verifyToken } from "../middleware/verifyToken";
-import { roleMiddleware } from "../middleware/roleMiddleware";
 
 const router = express.Router();
 
-router.post("/", verifyToken, roleMiddleware(["STUDENT"]), createTranscript);
-router.get("/", verifyToken, roleMiddleware(["ADMIN"]), getAllTranscripts);
-router.get("/:id", verifyToken, getTranscriptById);
-router.put(
-  "/:id/status",
-  verifyToken,
-  roleMiddleware(["ADMIN"]),
-  updateTranscriptStatus
-);
+// Create a new transcript
+router.post("/", verifyToken, createTranscript);
+
+// Get all transcripts for a student
+router.get("/student/:studentId", getAllTranscripts);
+
+// Get a single transcript by ID
+router.get("/:id", getTranscriptById);
+
+// Update a transcript
+router.put("/:id", updateTranscript);
+
+// Delete a transcript
+router.delete("/:id", deleteTranscript);
 
 export default router;

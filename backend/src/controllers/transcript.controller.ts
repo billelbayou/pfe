@@ -1,123 +1,123 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { AuthRequest } from "../utils/types";
 
-// ✅ Student creates transcript (Status defaults to PENDING)
 export const createTranscript = async (req: AuthRequest, res: Response) => {
-  try {
-    if (req.role !== "STUDENT") {
-      res.status(403).json({
-        success: false,
-        message: "Only students can create transcripts",
-      });
-      return;
-    }
+  const { courses } = req.body;
+  const { userId, role } = req; // userId and role are attached by the middleware
 
-    const { academicYear, semester, courses } = req.body;
-
-    // Find student by userId
-    const student = await prisma.student.findUnique({
-      where: { userId: req.userId },
+  // Ensure the user is a student
+  if (role !== "STUDENT") {
+    res.status(403).json({
+      success: false,
+      message: "Forbidden: Only students can create transcripts",
     });
-    if (!student) {
-      res.status(404).json({ success: false, message: "Student not found" });
-      return;
-    }
-
+    return;
+  }
+  if (!userId) {
+    res
+      .status(401)
+      .json({ success: false, message: "Unauthorized: User ID not found" });
+    return;
+  }
+  try {
+    // Create the transcript using the student's ID
     const transcript = await prisma.transcript.create({
       data: {
-        studentId: student.id,
-        academicYear,
-        semester,
-        courses,
-        status: "PENDING", // Default status
+        studentId: userId, // Use the student ID from the token
+        courses: {
+          create: courses, // Array of courses
+        },
+      },
+      include: {
+        courses: true, // Include courses in the response
       },
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Transcript created successfully",
-      transcript,
-    });
-    return;
+    res.status(201).json({ success: true, data: transcript });
   } catch (error) {
     console.error("Error creating transcript:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-    return;
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to create transcript" });
   }
 };
 
-// ✅ Admin fetches all transcripts
-export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
+export const getAllTranscripts = async (req: Request, res: Response) => {
+  const { studentId } = req.params;
+
   try {
-    const transcripts = await prisma.transcript.findMany();
-    res.json({ success: true, transcripts });
-    return;
-  } catch (error) {
-    console.error("Error fetching transcripts:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-    return;
+    const transcripts = await prisma.transcript.findMany({
+      where: { studentId },
+      include: { courses: true }, // Include courses in the response
+    });
+    res.status(200).json(transcripts);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch transcripts" });
   }
 };
 
-// ✅ Student can view their transcript | Admin can view any transcript
-export const getTranscriptById = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
+export const getTranscriptById = async (req: Request, res: Response) => {
+  const { id } = req.params;
 
+  try {
     const transcript = await prisma.transcript.findUnique({
       where: { id },
-      include: { student: true },
+      include: { courses: true }, // Include courses in the response
     });
-
     if (!transcript) {
-      res.status(404).json({ success: false, message: "Transcript not found" });
+      res.status(404).json({ error: "Transcript not found" });
       return;
     }
-
-    // Allow admins or the student owner to access it
-    if (req.role !== "ADMIN" && transcript.student.userId !== req.userId) {
-      res.status(403).json({ success: false, message: "Forbidden" });
-      return;
-    }
-
-    res.json({ success: true, transcript });
-    return;
-  } catch (error) {
-    console.error("Error fetching transcript:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-    return;
+    res.status(200).json(transcript);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch transcript" });
   }
 };
 
-// ✅ Admin approves or rejects transcript
-export const updateTranscriptStatus = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const updateTranscript = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { studentId, courses } = req.body;
+
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    // First, delete existing courses for the transcript
+    await prisma.course.deleteMany({
+      where: { transcriptId: id },
+    });
 
-    if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) {
-      res.status(400).json({ success: false, message: "Invalid status" });
-      return;
-    }
-
-    const transcript = await prisma.transcript.update({
+    // Then, update the transcript and create new courses
+    const updatedTranscript = await prisma.transcript.update({
       where: { id },
-      data: { status },
+      data: {
+        studentId,
+        courses: {
+          create: courses, // Array of new courses
+        },
+      },
+      include: {
+        courses: true, // Include courses in the response
+      },
     });
+    res.status(200).json(updatedTranscript);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update transcript" });
+  }
+};
 
-    res.json({
-      success: true,
-      message: `Transcript ${status.toLowerCase()} successfully`,
-      transcript,
+export const deleteTranscript = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    // Delete the transcript and its associated courses
+    await prisma.transcript.delete({
+      where: { id },
     });
-    return;
-  } catch (error) {
-    console.error("Error updating transcript status:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-    return;
+    res.status(204).send(); // No content to send back
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete transcript" });
   }
 };

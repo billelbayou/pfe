@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/transcripts", transcriptRoutes)
+app.use("/api/transcripts", transcriptRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
