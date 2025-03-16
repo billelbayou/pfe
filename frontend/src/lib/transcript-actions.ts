@@ -1,3 +1,4 @@
+import { Transcript } from "@/types/transcript";
 import { getToken } from "./token";
 
 export async function submitGrades(previousState: unknown, formData: FormData) {
@@ -52,4 +53,21 @@ export async function submitGrades(previousState: unknown, formData: FormData) {
   } catch (error) {
     console.error("Error sending POST request:", error);
   }
+}
+
+export async function getAllTranscripts() {
+  const token = await getToken();
+  const response = await fetch(
+    "http://localhost:5000/api/transcripts/student",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, // Include the token in the header
+      },
+      credentials: "include",
+    }
+  );
+
+  const transcripts: Transcript[] = await response.json();
+  return transcripts;
 }

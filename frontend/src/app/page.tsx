@@ -6,7 +6,6 @@ export default async function Home() {
   const auth = await checkAuth();
   if (!auth.success) redirect("/login");
   const user = auth.user;
-  console.log(user);
 
   return user.role === "ADMIN" ? (
     <h1>Admin</h1>
