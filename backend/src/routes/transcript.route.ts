@@ -15,7 +15,7 @@ const router = express.Router();
 router.post("/", verifyToken, createTranscript);
 
 // Get all transcripts for a student
-router.get("/student/:studentId", getAllTranscripts);
+router.get("/student", getAllTranscripts);
 
 // Get a single transcript by ID
 router.get("/:id", getTranscriptById);

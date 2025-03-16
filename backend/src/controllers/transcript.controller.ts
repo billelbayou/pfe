@@ -4,7 +4,7 @@ import { AuthRequest } from "../utils/types";
 
 export const createTranscript = async (req: AuthRequest, res: Response) => {
   const { courses } = req.body;
-  const { userId, role } = req; // userId and role are attached by the middleware
+  const { userId, role } = req; // userId is from the User table
 
   // Ensure the user is a student
   if (role !== "STUDENT") {
@@ -14,17 +14,34 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     });
     return;
   }
+
+  // Ensure userId is defined
   if (!userId) {
-    res
-      .status(401)
-      .json({ success: false, message: "Unauthorized: User ID not found" });
+    res.status(401).json({
+      success: false,
+      message: "Unauthorized: User ID not found",
+    });
     return;
   }
+
   try {
-    // Create the transcript using the student's ID
+    // Find the student associated with the user
+    const student = await prisma.student.findUnique({
+      where: { userId }, // Find the student by userId (foreign key to User table)
+    });
+
+    if (!student) {
+      res.status(404).json({
+        success: false,
+        message: "Student not found for the given user",
+      });
+      return;
+    }
+
+    // Create the transcript using the student's ID (from the Student table)
     const transcript = await prisma.transcript.create({
       data: {
-        studentId: userId, // Use the student ID from the token
+        studentId: student.id, // Use the student's ID, not the user's ID
         courses: {
           create: courses, // Array of courses
         },
@@ -37,18 +54,37 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     res.status(201).json({ success: true, data: transcript });
   } catch (error) {
     console.error("Error creating transcript:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to create transcript" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to create transcript",
+    });
   }
 };
+export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
+  const { userId } = req;
 
-export const getAllTranscripts = async (req: Request, res: Response) => {
-  const { studentId } = req.params;
+  if (!userId) {
+    res.status(401).json({
+      success: false,
+      message: "Unauthorized: User ID not found",
+    });
+    return;
+  }
+  const student = await prisma.student.findUnique({
+    where: { userId }, // Find the student by userId (foreign key to User table)
+  });
+
+  if (!student) {
+    res.status(404).json({
+      success: false,
+      message: "Student not found for the given user",
+    });
+    return;
+  }
 
   try {
     const transcripts = await prisma.transcript.findMany({
-      where: { studentId },
+      where: { studentId: student.id },
       include: { courses: true }, // Include courses in the response
     });
     res.status(200).json(transcripts);
