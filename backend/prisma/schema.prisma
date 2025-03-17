@@ -17,7 +17,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  role      Role     // ADMIN, STUDENT
+  role      Role // ADMIN, STUDENT
   student   Student?
   admin     Admin?
   createdAt DateTime @default(now())
@@ -25,14 +25,14 @@ model User {
 }
 
 model Student {
-  id          String      @id @default(uuid())
+  id          String       @id @default(uuid())
   name        String
-  email       String      @unique
-  userId      String      @unique
-  user        User        @relation(fields: [userId], references: [id])
+  email       String       @unique
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id])
   transcripts Transcript[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model Admin {
@@ -49,7 +49,11 @@ model Transcript {
   id        String   @id @default(uuid())
   studentId String
   student   Student  @relation(fields: [studentId], references: [id])
+  semester  Semster
   courses   Course[]
+  average   Float    @default(0)
+  credits   Int      @default(0)
+  status    Status   @default(PENDING)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -59,7 +63,11 @@ model Course {
   transcriptId String
   transcript   Transcript @relation(fields: [transcriptId], references: [id])
   courseName   String
-  grade        Int
+  exam         Float      @default(0)
+  td           Float      @default(0)
+  tp           Float      @default(0)
+  coefficient  Float      @default(1) // Add coefficient (weight of the course)
+  credits      Int        @default(0) // Credits for the course
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -67,4 +75,19 @@ model Course {
 enum Role {
   ADMIN
   STUDENT
+}
+
+enum Status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Semster {
+  S1
+  S2
+  S3
+  S4
+  S5
+  S6
 }

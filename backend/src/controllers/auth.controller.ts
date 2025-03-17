@@ -102,7 +102,7 @@ export const checkAuth = async (req: AuthRequest, res: Response) => {
     if (req.role === "STUDENT") {
       userData = await prisma.student.findUnique({
         where: { userId: req.userId },
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, createdAt: true },
       });
     } else if (req.role === "ADMIN") {
       userData = await prisma.admin.findUnique({

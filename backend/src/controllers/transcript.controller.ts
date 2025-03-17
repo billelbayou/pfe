@@ -1,49 +1,91 @@
 import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { AuthRequest } from "../utils/types";
+import { Course } from "@prisma/client";
 
 export const createTranscript = async (req: AuthRequest, res: Response) => {
-  const { courses } = req.body;
-  const { userId, role } = req; // userId is from the User table
+  const { courses, semester } = req.body;
+  const { userId, role } = req;
 
   // Ensure the user is a student
   if (role !== "STUDENT") {
-    res.status(403).json({
+    return res.status(403).json({
       success: false,
       message: "Forbidden: Only students can create transcripts",
     });
-    return;
   }
 
   // Ensure userId is defined
   if (!userId) {
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
       message: "Unauthorized: User ID not found",
     });
-    return;
   }
 
   try {
     // Find the student associated with the user
     const student = await prisma.student.findUnique({
-      where: { userId }, // Find the student by userId (foreign key to User table)
+      where: { userId },
     });
 
     if (!student) {
-      res.status(404).json({
+      return res.status(404).json({
         success: false,
-        message: "Student not found for the given user",
+        message: "Student not found",
       });
-      return;
     }
 
-    // Create the transcript using the student's ID (from the Student table)
+    // Calculate the average and total credits
+    let totalCredits = 0;
+    let totalWeightedGrades = 0;
+    let totalCoefficients = 0;
+
+    const transcriptCourses = courses.map((course: Course) => {
+      const { exam, td, tp, coefficient, credits, courseName } = course;
+
+      // Calculate the course average (example: exam * 0.6 + td * 0.2 + tp * 0.2)
+      const courseAverage = exam * 0.6 + td * 0.2 + tp * 0.2;
+
+      // Update total coefficients and weighted grades
+      totalCoefficients += coefficient;
+      totalWeightedGrades += courseAverage * coefficient;
+
+      return {
+        courseName,
+        exam,
+        td,
+        tp,
+        coefficient,
+        credits,
+      };
+    });
+
+    // Calculate the overall average
+    const overallAverage = totalWeightedGrades / totalCoefficients;
+
+    // Calculate total credits based on the overall average
+    if (overallAverage >= 10) {
+      totalCredits = 30; // Automatic 30 credits if average >= 10
+    } else {
+      // Sum credits of courses where the student passed (course average >= 10)
+      totalCredits = courses.reduce((sum: number, course: Course) => {
+        const courseAverage =
+          course.exam * 0.6 + course.td * 0.2 + course.tp * 0.2;
+        return courseAverage >= 10 ? sum + course.credits : sum;
+      }, 0);
+    }
+
+    // Create the transcript
     const transcript = await prisma.transcript.create({
       data: {
-        studentId: student.id, // Use the student's ID, not the user's ID
+        studentId: student.id,
+        semester, // Add the semester
+        average: overallAverage, // Add the calculated average
+        credits: totalCredits, // Add the total credits
+        status: "PENDING", // Default status
         courses: {
-          create: courses, // Array of courses
+          create: transcriptCourses, // Add the courses
         },
       },
       include: {
