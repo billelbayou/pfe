@@ -49,8 +49,9 @@ model Transcript {
   id        String   @id @default(uuid())
   studentId String
   student   Student  @relation(fields: [studentId], references: [id])
-  semester  Semster
-  courses   Course[]
+  semester  Semester
+  year      Int      // Add year field
+  unites    Unite[]
   average   Float    @default(0)
   credits   Int      @default(0)
   status    Status   @default(PENDING)
@@ -58,18 +59,33 @@ model Transcript {
   updatedAt DateTime @updatedAt
 }
 
-model Course {
+model Unite {
   id           String     @id @default(uuid())
   transcriptId String
   transcript   Transcript @relation(fields: [transcriptId], references: [id])
-  courseName   String
-  exam         Float      @default(0)
-  td           Float      @default(0)
-  tp           Float      @default(0)
-  coefficient  Float      @default(1) // Add coefficient (weight of the course)
-  credits      Int        @default(0) // Credits for the course
+  name         String
+  title        String
+  coef         Float      @default(1) // Coefficient for the unit
+  credit       Int        @default(0) // Credits for the unit
+  moy          Float      @default(0) // Average grade for the unit
+  courses      Course[] // Add relationship to Course
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  uniteId     String
+  unite       Unite    @relation(fields: [uniteId], references: [id])
+  courseName  String
+  exam        Float    @default(0)
+  td          Float    @default(0)
+  tp          Float    @default(0)
+  coefficient Float    @default(1) // Coefficient (weight) of the course
+  credits     Int      @default(0) // Credits for the course
+  moy         Float    @default(0) // Average grade for the course
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 enum Role {
@@ -83,7 +99,7 @@ enum Status {
   REJECTED
 }
 
-enum Semster {
+enum Semester {
   S1
   S2
   S3

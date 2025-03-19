@@ -1,26 +1,32 @@
 import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { AuthRequest } from "../utils/types";
-import { Course } from "@prisma/client";
+import { Course, Prisma } from "@prisma/client";
+
+type Unite = Prisma.UniteGetPayload<{
+  include: { courses: true };
+}>;
 
 export const createTranscript = async (req: AuthRequest, res: Response) => {
-  const { courses, semester } = req.body;
+  const { unites, semester, year } = req.body; // Updated to include `unites` and `year`
   const { userId, role } = req;
 
   // Ensure the user is a student
   if (role !== "STUDENT") {
-    return res.status(403).json({
+    res.status(403).json({
       success: false,
       message: "Forbidden: Only students can create transcripts",
     });
+    return;
   }
 
   // Ensure userId is defined
   if (!userId) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: "Unauthorized: User ID not found",
     });
+    return;
   }
 
   try {
@@ -30,66 +36,104 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     });
 
     if (!student) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Student not found",
       });
+      return;
     }
 
-    // Calculate the average and total credits
+    // Calculate the overall average and total credits
     let totalCredits = 0;
     let totalWeightedGrades = 0;
     let totalCoefficients = 0;
 
-    const transcriptCourses = courses.map((course: Course) => {
-      const { exam, td, tp, coefficient, credits, courseName } = course;
+    const transcriptUnites = await Promise.all(
+      unites.map(async (unite: Unite) => {
+        const { name, title, coef, credit, courses } = unite;
 
-      // Calculate the course average (example: exam * 0.6 + td * 0.2 + tp * 0.2)
-      const courseAverage = exam * 0.6 + td * 0.2 + tp * 0.2;
+        // Calculate the unit average and credits
+        let uniteWeightedGrades = 0;
+        let uniteCoefficients = 0;
+        let uniteCredits = 0;
 
-      // Update total coefficients and weighted grades
-      totalCoefficients += coefficient;
-      totalWeightedGrades += courseAverage * coefficient;
+        const uniteCourses = courses.map((course: Course) => {
+          const { courseName, exam, td, tp, coefficient, credits } = course;
 
-      return {
-        courseName,
-        exam,
-        td,
-        tp,
-        coefficient,
-        credits,
-      };
-    });
+          // Calculate the course average (example: exam * 0.6 + td * 0.2 + tp * 0.2)
+          const courseAverage = exam * 0.6 + td * 0.2 + tp * 0.2;
+
+          // Update unit-level weighted grades and coefficients
+          uniteWeightedGrades += courseAverage * coefficient;
+          uniteCoefficients += coefficient;
+
+          return {
+            courseName,
+            exam,
+            td,
+            tp,
+            coefficient,
+            credits,
+            moy: courseAverage, // Add the calculated average
+          };
+        });
+
+        // Calculate the unit average
+        const uniteAverage = uniteWeightedGrades / uniteCoefficients;
+
+        // Update overall weighted grades and coefficients
+        totalWeightedGrades += uniteAverage * coef;
+        totalCoefficients += coef;
+
+        // Calculate unit credits based on the unit average
+        if (uniteAverage >= 10) {
+          uniteCredits = credit; // Full credits if unit average >= 10
+        } else {
+          // Sum credits of courses where the student passed (course average >= 10)
+          uniteCredits = courses.reduce((sum: number, course: Course) => {
+            const courseAverage =
+              course.exam * 0.6 + course.td * 0.2 + course.tp * 0.2;
+            return courseAverage >= 10 ? sum + course.credits : sum;
+          }, 0);
+        }
+
+        totalCredits += uniteCredits;
+
+        return {
+          name,
+          title,
+          coef,
+          credit: uniteCredits,
+          moy: uniteAverage,
+          courses: {
+            create: uniteCourses,
+          },
+        };
+      })
+    );
 
     // Calculate the overall average
     const overallAverage = totalWeightedGrades / totalCoefficients;
-
-    // Calculate total credits based on the overall average
-    if (overallAverage >= 10) {
-      totalCredits = 30; // Automatic 30 credits if average >= 10
-    } else {
-      // Sum credits of courses where the student passed (course average >= 10)
-      totalCredits = courses.reduce((sum: number, course: Course) => {
-        const courseAverage =
-          course.exam * 0.6 + course.td * 0.2 + course.tp * 0.2;
-        return courseAverage >= 10 ? sum + course.credits : sum;
-      }, 0);
-    }
 
     // Create the transcript
     const transcript = await prisma.transcript.create({
       data: {
         studentId: student.id,
-        semester, // Add the semester
-        average: overallAverage, // Add the calculated average
-        credits: totalCredits, // Add the total credits
-        status: "PENDING", // Default status
-        courses: {
-          create: transcriptCourses, // Add the courses
+        semester,
+        year, // Add the year
+        average: overallAverage,
+        credits: totalCredits,
+        status: "PENDING",
+        unites: {
+          create: transcriptUnites,
         },
       },
       include: {
-        courses: true, // Include courses in the response
+        unites: {
+          include: {
+            courses: true,
+          },
+        },
       },
     });
 
@@ -102,6 +146,7 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
 export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
   const { userId } = req;
 
@@ -127,7 +172,7 @@ export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
   try {
     const transcripts = await prisma.transcript.findMany({
       where: { studentId: student.id },
-      include: { courses: true }, // Include courses in the response
+      include: { unites: true }, // Include courses in the response
     });
     res.status(200).json(transcripts);
   } catch (err) {
@@ -136,54 +181,7 @@ export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getTranscriptById = async (req: Request, res: Response) => {
-  const { id } = req.params;
 
-  try {
-    const transcript = await prisma.transcript.findUnique({
-      where: { id },
-      include: { courses: true }, // Include courses in the response
-    });
-    if (!transcript) {
-      res.status(404).json({ error: "Transcript not found" });
-      return;
-    }
-    res.status(200).json(transcript);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch transcript" });
-  }
-};
-
-export const updateTranscript = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { studentId, courses } = req.body;
-
-  try {
-    // First, delete existing courses for the transcript
-    await prisma.course.deleteMany({
-      where: { transcriptId: id },
-    });
-
-    // Then, update the transcript and create new courses
-    const updatedTranscript = await prisma.transcript.update({
-      where: { id },
-      data: {
-        studentId,
-        courses: {
-          create: courses, // Array of new courses
-        },
-      },
-      include: {
-        courses: true, // Include courses in the response
-      },
-    });
-    res.status(200).json(updatedTranscript);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update transcript" });
-  }
-};
 
 export const deleteTranscript = async (req: Request, res: Response) => {
   const { id } = req.params;
