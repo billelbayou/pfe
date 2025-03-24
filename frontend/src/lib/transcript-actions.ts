@@ -1,39 +1,45 @@
-import data from "@/lib/transcript.json";
+import transcript from "@/lib/transcript.json";
 import { calcluateAverage } from "@/utils/calculateAverage";
+import { getToken } from "./token";
 
-export const transcriptAction = (previousData: unknown, formData: FormData) => {
+export const transcriptAction = async (
+  previousData: unknown,
+  formData: FormData
+) => {
   const analyseTd = formData.get("analyse1-td") as string;
   const analyseExam = formData.get("analyse1-exam") as string;
-  const analyseCredit = data.semestre1.unites[0].modules[0].credit;
-  const analyseCoef = data.semestre1.unites[0].modules[0].coef;
+  const analyseCredit = transcript.semestre1.unites[0].modules[0].credit;
+  const analyseCoef = transcript.semestre1.unites[0].modules[0].coef;
 
   const algebreTd = formData.get("algebre1-td") as string;
   const algebreExam = formData.get("algebre1-exam") as string;
-  const algebreCredit = data.semestre1.unites[0].modules[1].credit;
-  const algebreCoef = data.semestre1.unites[0].modules[1].coef;
+  const algebreCredit = transcript.semestre1.unites[0].modules[1].credit;
+  const algebreCoef = transcript.semestre1.unites[0].modules[1].coef;
 
   const algoTd = formData.get("Algo1-td") as string;
   const algoTp = formData.get("Algo1-tp") as string;
   const algoExam = formData.get("Algo1-exam") as string;
-  const algoCredit = data.semestre1.unites[1].modules[0].credit;
-  const algoCoef = data.semestre1.unites[1].modules[0].coef;
+  const algoCredit = transcript.semestre1.unites[1].modules[0].credit;
+  const algoCoef = transcript.semestre1.unites[1].modules[0].coef;
 
   const strmTd = formData.get("STRM1-td") as string;
   const strmExam = formData.get("STRM1-exam") as string;
-  const strmCredit = data.semestre1.unites[1].modules[1].credit;
-  const strmCoef = data.semestre1.unites[1].modules[1].coef;
+  const strmCredit = transcript.semestre1.unites[1].modules[1].credit;
+  const strmCoef = transcript.semestre1.unites[1].modules[1].coef;
 
   const termExam = formData.get("Term-exam") as string;
-  const termCredit = data.semestre1.unites[2].modules[0].credit;
-  const termCoef = data.semestre1.unites[2].modules[0].coef;
+  const termCredit = transcript.semestre1.unites[2].modules[0].credit;
+  const termCoef = transcript.semestre1.unites[2].modules[0].coef;
   const angExam = formData.get("Ang1-exam") as string;
-  const angCredit = data.semestre1.unites[2].modules[1].credit;
-  const angCoef = data.semestre1.unites[2].modules[1].coef;
+  const angCredit = transcript.semestre1.unites[2].modules[1].credit;
+  const angCoef = transcript.semestre1.unites[2].modules[1].coef;
 
   const physTd = formData.get("Phys1-td") as string;
   const physExam = formData.get("Phys1-exam") as string;
-  const physCredit = data.semestre1.unites[3].modules[0].credit;
-  const physCoef = data.semestre1.unites[3].modules[0].coef;
+  const physCredit = transcript.semestre1.unites[3].modules[0].credit;
+
+  const year = formData.get("year") as string;
+  const semesterNum = formData.get("semester") as string;
 
   const modulesNotes = {
     analyse: {
@@ -91,7 +97,7 @@ export const transcriptAction = (previousData: unknown, formData: FormData) => {
   };
   const unites = {
     unite1: {
-      coefficent: data.semestre1.unites[0].coef,
+      coefficent: transcript.semestre1.unites[0].coef,
       moyenne: parseFloat(
         (
           (modulesNotes.analyse.moyenne * analyseCoef +
@@ -110,7 +116,7 @@ export const transcriptAction = (previousData: unknown, formData: FormData) => {
       ],
     },
     unite2: {
-      coefficent: data.semestre1.unites[1].coef,
+      coefficent: transcript.semestre1.unites[1].coef,
       moyenne: parseFloat(
         (
           (modulesNotes.algo.moyenne * algoCoef +
@@ -129,7 +135,7 @@ export const transcriptAction = (previousData: unknown, formData: FormData) => {
       ],
     },
     unite3: {
-      coefficent: data.semestre1.unites[2].coef,
+      coefficent: transcript.semestre1.unites[2].coef,
       moyenne: parseFloat(
         (
           (modulesNotes.term.moyenne * termCoef +
@@ -148,7 +154,7 @@ export const transcriptAction = (previousData: unknown, formData: FormData) => {
       ],
     },
     unite4: {
-      coefficent: data.semestre1.unites[3].coef,
+      coefficent: transcript.semestre1.unites[3].coef,
       moyenne: modulesNotes.phys.moyenne,
       credits: modulesNotes.phys.credit,
       modules: [
@@ -168,11 +174,31 @@ export const transcriptAction = (previousData: unknown, formData: FormData) => {
   );
   const semestre = {
     moyenne: semestreMoy,
-    credits: semestreMoy >= 10 ? 30 : Object.values(unites).reduce(
-      (sum, unite) => sum + unite.credits,
-      0
-    ),
+    credits:
+      semestreMoy >= 10
+        ? 30
+        : Object.values(unites).reduce((sum, unite) => sum + unite.credits, 0),
     unites,
   };
-  console.log(semestre)
+
+  const data = {
+    year,
+    semester: semesterNum,
+    semestre,
+  };
+  console.log(data);
+  try {
+    const token = await getToken();
+    const response = await fetch("http://localhost:5000/api/transcripts", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Transcript error:", error);
+  }
 };
