@@ -1,15 +1,11 @@
 import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { AuthRequest } from "../utils/types";
-import { Course, Prisma } from "@prisma/client";
-
-type Unite = Prisma.UniteGetPayload<{
-  include: { courses: true };
-}>;
+import { AuthRequest, DataInterface } from "../utils/types";
 
 export const createTranscript = async (req: AuthRequest, res: Response) => {
-  const data = req.body; // Updated to include `unites` and `year`
+  const data: DataInterface = req.body;
   const { userId } = req;
+
   if (!userId) {
     res.status(401).json({
       success: false,
@@ -17,8 +13,9 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     });
     return;
   }
+
   const student = await prisma.student.findUnique({
-    where: { userId }, // Find the student by userId (foreign key to User table)
+    where: { userId },
   });
 
   if (!student) {
@@ -29,14 +26,76 @@ export const createTranscript = async (req: AuthRequest, res: Response) => {
     return;
   }
 
-  console.log("Here The student details :");
-  console.log(student);
-  console.log("Here The data details :");
-  console.log(data);
-  res.status(200).json({ success: true, message: "Transcript created" });
+  try {
+    await prisma.transcript.create({
+      data: {
+        studentId: student.id,
+        semester: `S${data.semestreNum}`,
+        year: data.year,
+        average: Number(data.semestre.moyenne), // Ensure it's a number
+        credits: Number(data.semestre.credits),
+        unites: {
+          create: data.semestre.unites.map((unite) => ({
+            name: unite.name,
+            title: unite.title,
+            coef: unite.coefficient ? Number(unite.coefficient) : undefined,
+            moy: Number(unite.moyenne),
+            credit: Number(unite.credits),
+            courses: {
+              create: unite.modules.map((module) => ({
+                courseName: module.name,
+                coefficient: Number(module.coef),
+                td: module.td !== undefined ? Number(module.td) : undefined,
+                tp: module.tp !== undefined ? Number(module.tp) : undefined,
+                exam: Number(module.exam),
+                moy: Number(module.moyenne),
+                credits: Number(module.credit),
+              })),
+            },
+          })),
+        },
+      },
+      include: {
+        unites: {
+          include: {
+            courses: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json({ success: true, message: "Transcript created" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to create transcript" });
+  }
 };
 
 export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
+  try {
+    const transcripts = await prisma.transcript.findMany({
+      include: {
+        unites: {
+          include: {
+            courses: true,
+          },
+        },
+      },
+    });
+
+    res.status(200).json({ success: true, transcripts });
+  } catch (error) {
+    console.error("Error fetching transcripts:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch transcripts" });
+  }
+};
+
+export const getStudentTranscripts = async (
+  req: AuthRequest,
+  res: Response
+) => {
   const { userId } = req;
 
   if (!userId) {
@@ -46,41 +105,36 @@ export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
     });
     return;
   }
-  const student = await prisma.student.findUnique({
-    where: { userId }, // Find the student by userId (foreign key to User table)
-  });
-
-  if (!student) {
-    res.status(404).json({
-      success: false,
-      message: "Student not found for the given user",
-    });
-    return;
-  }
 
   try {
-    const transcripts = await prisma.transcript.findMany({
-      where: { studentId: student.id },
-      include: { unites: true }, // Include courses in the response
+    const student = await prisma.student.findUnique({
+      where: { userId },
+      include: {
+        transcripts: {
+          include: {
+            unites: {
+              include: {
+                courses: true,
+              },
+            },
+          },
+        },
+      },
     });
-    res.status(200).json(transcripts);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch transcripts" });
-  }
-};
 
-export const deleteTranscript = async (req: Request, res: Response) => {
-  const { id } = req.params;
+    if (!student) {
+      res.status(404).json({
+        success: false,
+        message: "Student not found for the given user",
+      });
+      return;
+    }
 
-  try {
-    // Delete the transcript and its associated courses
-    await prisma.transcript.delete({
-      where: { id },
-    });
-    res.status(204).send(); // No content to send back
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete transcript" });
+    res.status(200).json({ success: true, transcripts: student.transcripts });
+  } catch (error) {
+    console.error("Error fetching student transcripts:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch transcripts" });
   }
 };

@@ -37,12 +37,15 @@ export const transcriptAction = async (
   const physTd = formData.get("Phys1-td") as string;
   const physExam = formData.get("Phys1-exam") as string;
   const physCredit = transcript.semestre1.unites[3].modules[0].credit;
+  const physCoef = transcript.semestre1.unites[3].modules[0].coef;
 
   const year = formData.get("year") as string;
-  const semesterNum = formData.get("semester") as string;
+  const semestreNum = parseInt(formData.get("semester") as string);
 
   const modulesNotes = {
     analyse: {
+      name: "Analyse 1",
+      coef: analyseCoef,
       td: analyseTd,
       exam: analyseExam,
       moyenne: calcluateAverage(analyseExam, analyseTd) as number,
@@ -52,6 +55,8 @@ export const transcriptAction = async (
           : 0,
     },
     algebre: {
+      name: "Algebre 1",
+      coef: algebreCoef,
       td: algebreTd,
       exam: algebreExam,
       moyenne: calcluateAverage(algebreExam, algebreTd) as number,
@@ -61,6 +66,8 @@ export const transcriptAction = async (
           : 0,
     },
     algo: {
+      name: "Algorithmique et structure de données 1",
+      coef: algoCoef,
       td: algoTd,
       tp: algoTp,
       exam: algoExam,
@@ -71,6 +78,8 @@ export const transcriptAction = async (
           : 0,
     },
     strm: {
+      name: "Structure machine 1",
+      coef: strmCoef,
       td: strmTd,
       exam: strmExam,
       moyenne: calcluateAverage(strmExam, strmTd) as number,
@@ -78,16 +87,22 @@ export const transcriptAction = async (
         (calcluateAverage(strmExam, strmTd) as number) >= 10 ? strmCredit : 0,
     },
     term: {
+      name: "Terminologie Scientifique et expression écrite",
+      coef: termCoef,
       exam: termExam,
       moyenne: calcluateAverage(termExam) as number,
       credit: (calcluateAverage(termExam) as number) >= 10 ? termCredit : 0,
     },
     ang: {
+      name: "Langue Etrangère 1",
+      coef: angCoef,
       exam: angExam,
       moyenne: calcluateAverage(angExam) as number,
       credit: (calcluateAverage(angExam) as number) >= 10 ? angCredit : 0,
     },
     phys: {
+      name: "Physique 1",
+      coef: physCoef,
       td: physTd,
       exam: physExam,
       moyenne: calcluateAverage(physExam, physTd) as number,
@@ -95,8 +110,10 @@ export const transcriptAction = async (
         (calcluateAverage(physExam, physTd) as number) >= 10 ? physCredit : 0,
     },
   };
-  const unites = {
-    unite1: {
+  const unites = [
+    {
+      name: transcript.semestre1.unites[0].name,
+      title: transcript.semestre1.unites[0].title,
       coefficent: transcript.semestre1.unites[0].coef,
       moyenne: parseFloat(
         (
@@ -115,7 +132,9 @@ export const transcriptAction = async (
         },
       ],
     },
-    unite2: {
+    {
+      name: transcript.semestre1.unites[1].name,
+      title: transcript.semestre1.unites[1].title,
       coefficent: transcript.semestre1.unites[1].coef,
       moyenne: parseFloat(
         (
@@ -134,7 +153,9 @@ export const transcriptAction = async (
         },
       ],
     },
-    unite3: {
+    {
+      name: transcript.semestre1.unites[2].name,
+      title: transcript.semestre1.unites[2].title,
       coefficent: transcript.semestre1.unites[2].coef,
       moyenne: parseFloat(
         (
@@ -153,7 +174,9 @@ export const transcriptAction = async (
         },
       ],
     },
-    unite4: {
+    {
+      name: transcript.semestre1.unites[3].name,
+      title: transcript.semestre1.unites[3].title,
       coefficent: transcript.semestre1.unites[3].coef,
       moyenne: modulesNotes.phys.moyenne,
       credits: modulesNotes.phys.credit,
@@ -163,7 +186,8 @@ export const transcriptAction = async (
         },
       ],
     },
-  };
+  ];
+
   const semestreMoy = parseFloat(
     (
       Object.values(unites).reduce(
@@ -183,20 +207,23 @@ export const transcriptAction = async (
 
   const data = {
     year,
-    semester: semesterNum,
+    semestreNum,
     semestre,
   };
   console.log(data);
   try {
     const token = await getToken();
-    const response = await fetch("http://localhost:5000/api/transcripts", {
-      method: "POST",
-      body: JSON.stringify(data),
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(
+      "http://localhost:5000/api/transcripts/student",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
     return await response.json();
   } catch (error) {
     console.error("Transcript error:", error);

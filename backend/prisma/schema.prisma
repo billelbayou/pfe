@@ -50,7 +50,7 @@ model Transcript {
   studentId String
   student   Student  @relation(fields: [studentId], references: [id])
   semester  Semester
-  year      Int      // Add year field
+  year      String
   unites    Unite[]
   average   Float    @default(0)
   credits   Int      @default(0)
@@ -79,9 +79,9 @@ model Course {
   unite       Unite    @relation(fields: [uniteId], references: [id])
   courseName  String
   exam        Float    @default(0)
-  td          Float    @default(0)
-  tp          Float    @default(0)
-  coefficient Float    @default(1) // Coefficient (weight) of the course
+  td          Float?
+  tp          Float?
+  coefficient Int      @default(1) // Coefficient (weight) of the course
   credits     Int      @default(0) // Credits for the course
   moy         Float    @default(0) // Average grade for the course
   createdAt   DateTime @default(now())

@@ -185,6 +185,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ year, semester }) => {
             {isPending ? "Saving..." : "Save Transcript"}
           </button>
         </div>
+        {state && <p>{state.message}</p>}
       </form>
     </div>
   );
