@@ -9,12 +9,14 @@ export type Course = {
 
 export type Transcript = {
   id: string;
-  createdAt: Date;
-  updatedAt: Date;
   studentId: string;
-  courses: Course[];
+  semester: string;
+  year: string;
+  average: number;
+  credits: number;
+  status: string;
+  unites: Unite[];
 };
-
 export type User = {
   role: "STUDENT" | "ADMIN";
   id: string;
@@ -52,3 +54,5 @@ export interface AcademicYear {
   semestre1: Semestre;
   semestre2: Semestre;
 }
+
+

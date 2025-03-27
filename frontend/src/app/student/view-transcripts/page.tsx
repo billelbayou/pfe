@@ -1,4 +1,5 @@
 import { getToken } from "@/lib/token";
+import { Transcript } from "@/lib/types";
 import Link from "next/link";
 
 export default async function TranscriptList() {
@@ -13,7 +14,7 @@ export default async function TranscriptList() {
     }
   );
   const data = await response.json();
-  const transcripts = data.transcripts;
+  const transcripts: Transcript[] = data.transcripts;
 
   // Function to get status color
   const getStatusColor = (status: string) => {
@@ -39,7 +40,7 @@ export default async function TranscriptList() {
         {transcripts.map((transcript) => (
           <Link
             key={transcript.id}
-            href={`/transcripts/${transcript.id}`}
+            href={`/student/transcript/${transcript.id}`}
             className="group"
           >
             <div className="mb-4 p-5 flex justify-between items-center rounded-lg bg-white shadow-md border border-gray-300 transition-transform transform group-hover:scale-[1.02] group-hover:shadow-lg">

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { AuthRequest, DataInterface } from "../utils/types";
+import { Transcript } from "@prisma/client";
 
 export const createTranscript = async (req: AuthRequest, res: Response) => {
   const data: DataInterface = req.body;
@@ -89,6 +90,35 @@ export const getAllTranscripts = async (req: AuthRequest, res: Response) => {
     res
       .status(500)
       .json({ success: false, message: "Failed to fetch transcripts" });
+  }
+};
+
+export const getTranscriptById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const transcript = await prisma.transcript.findUnique({
+      where: { id }, // No need for Number(id) since it's a string
+      include: {
+        unites: {
+          include: {
+            courses: true,
+          },
+        },
+      },
+    });
+
+    if (!transcript) {
+      res.status(404).json({ success: false, message: "Transcript not found" });
+      return;
+    }
+
+    res.status(200).json({ success: true, transcript });
+  } catch (error) {
+    console.error("Error fetching transcript:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch transcript" });
   }
 };
 
