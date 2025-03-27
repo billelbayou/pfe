@@ -9,4 +9,7 @@ export default async function Home() {
   if (user.role === "STUDENT") {
     redirect("/student");
   }
+  if (user.role === "ADMIN") {
+    redirect("/admin");
+  }
 }

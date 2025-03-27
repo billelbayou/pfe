@@ -7,7 +7,7 @@ export default async function Profile() {
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8">Student Profile</h1>
+      <h1 className="text-3xl font-bold mb-8">Admin Profile</h1>
 
       {/* Personal Information Section */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
